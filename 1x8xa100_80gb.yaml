@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: 1x8xa100-80gb
+  labels:
+    num_nodes: "1"
+    num_gpus: "8"
+spec:
+  containers:
+  - name: interactive
+    image: nvcr.io/nvidia/pytorch:25.06-py3
+    # https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch
+    # https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/rel-25-06.html
+    # https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html
+    command: ["/bin/bash", "-lc"]
+    args: ["sleep infinity"]
+    resources:
+      requests:
+        memory: "1Ti"
+        cpu: "90"
+        nvidia.com/gpu: "8"
+      limits:
+        memory: "1Ti"
+        cpu: "90"
+        nvidia.com/gpu: "8"
+    volumeMounts:
+    - name: fsx-storage
+      mountPath: /fsx
+    - name: efs-storage
+      mountPath: /efs
+    - name: dshm
+      mountPath: /dev/shm
+
+  volumes:
+  - name: fsx-storage
+    persistentVolumeClaim:
+      claimName: fsx
+  - name: efs-storage
+    persistentVolumeClaim:
+      claimName: efs
+  - name: dshm
+    emptyDir:
+      medium: Memory
+      sizeLimit: 256Gi
+
+# k apply -f dev/scripts/infer_kimi_k2p5/kube_resource_config/1x8xa100_80gb.yaml
+# ./dev/scripts/infer_kimi_k2p5/kube_resource_config/exec_pod_as_host_user.sh
+# ./dev/scripts/infer_kimi_k2p5/kube_resource_config/exec_pod_as_host_user.sh 1x8xa100-80gb
+# k delete pod 1x8xa100-80gb --grace-period=0 --force
+# k describe pod 1x8xa100-80gb
+
+# k get pods
+# kubectl get nodes 
+# kubectl get nodes -o wide
+# kubectl get nodes --show-labels
+
+# kubectl get ds -A | egrep 'nvidia|gpu|efa'
+# kubectl get nodes -L nvidia.com/gpu.count,feature.node.kubernetes.io/rdma.available

@@ -1,0 +1,79 @@
+# 
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: 2x8xa100-80gb
+spec:
+  serviceName: 2x8xa100-80gb
+  replicas: 2
+  selector:
+    matchLabels:
+      app: 2x8xa100-80gb
+  template:
+    metadata:
+      labels:
+        app: 2x8xa100-80gb
+        type: preemptible
+        num_nodes: "2"
+        num_gpus: "8"
+    spec:
+      terminationGracePeriodSeconds: 10
+
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: 2x8xa100-80gb
+              topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: preemptible
+          image: nvcr.io/nvidia/pytorch:25.06-py3
+          command: ["/bin/bash", "-lc"]
+          args:
+            - |
+              echo "hostname=$(hostname)"
+              echo "pod_ip=$(hostname -i || true)"
+              echo "NCCL/torch dev pod ready"
+              sleep infinity
+          resources:
+            requests:
+              memory: "1Ti"
+              cpu: "90"
+              nvidia.com/gpu: "8"
+            limits:
+              memory: "1Ti"
+              cpu: "90"
+              nvidia.com/gpu: "8"
+          ports:
+            - containerPort: 29500
+              name: dist
+          env:
+            - name: MASTER_ADDR
+              value: 2x8xa100-80gb-0.2x8xa100-80gb
+            - name: MASTER_PORT
+              value: "29500"
+            - name: NNODES
+              value: "2"
+            - name: NPROC_PER_NODE
+              value: "8"
+          volumeMounts:
+            - name: fsx-storage
+              mountPath: /fsx
+            - name: efs-storage
+              mountPath: /efs
+            - name: dshm
+              mountPath: /dev/shm
+
+      volumes:
+        - name: fsx-storage
+          persistentVolumeClaim:
+            claimName: fsx
+        - name: efs-storage
+          persistentVolumeClaim:
+            claimName: efs
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Gi
