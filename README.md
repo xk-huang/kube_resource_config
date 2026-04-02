@@ -45,25 +45,25 @@ Service is for torch distributed training, as it provides stable network identit
 
 ```bash
 # Start the statefulset and service
-kubectl apply -f ./kube_resource_config/2x8xa100-80gb-svc.yaml
-kubectl apply -f ./kube_resource_config/2x8xa100-80gb-sts.yaml
+kubectl apply -f ./2x8xa100-80gb-svc.yaml
+kubectl apply -f ./2x8xa100-80gb-sts.yaml
 
 # Check the status of the statefulset and service
 kubectl get statefulsets
 kubectl describe sts 2x8xa100-80gb
-kubectl get svc 2x8xa100-80gb
+kubectl get svc svc-2x8xa100-80gb
 
 # Exec into the pods as your current host user
-./exec_pod_as_host_user.sh 2x8xa100-80gb-0
-./exec_pod_as_host_user.sh 2x8xa100-80gb-1
+bash ./exec_pod_as_host_user.sh 2x8xa100-80gb-0
+bash ./exec_pod_as_host_user.sh 2x8xa100-80gb-1
 
 # Or target the StatefulSet name and pick the ordinal
-POD_ORDINAL=0 ./exec_pod_as_host_user.sh 2x8xa100-80gb
-POD_ORDINAL=1 ./exec_pod_as_host_user.sh 2x8xa100-80gb
+POD_ORDINAL=0 bash ./exec_pod_as_host_user.sh 2x8xa100-80gb
+POD_ORDINAL=1 bash ./exec_pod_as_host_user.sh 2x8xa100-80gb
 
 # To delete the statefulset and service
 kubectl delete statefulset 2x8xa100-80gb
-kubectl delete service 2x8xa100-80gb
+kubectl delete service svc-2x8xa100-80gb
 
 
 # Check pod status
@@ -76,13 +76,15 @@ kubectl logs -f <pod-name>
 In the container
 
 ```bash
-getent hosts 2x8xa100-80gb-0.2x8xa100-80gb
-getent hosts 2x8xa100-80gb-1.2x8xa100-80gb
+getent hosts 2x8xa100-80gb-0.svc-2x8xa100-80gb
+getent hosts 2x8xa100-80gb-1.svc-2x8xa100-80gb
 
-# nslookup 2x8xa100-80gb-0.2x8xa100-80gb
+# sudo apt install iputils-ping dnsutils
+nslookup 2x8xa100-80gb-0.svc-2x8xa100-80gb
 
-python -m http.server 29500
-curl 2x8xa100-80gb-0.2x8xa100-80gb:29500
+# Do not use it; the below command raises ticket on AWS
+# python -m http.server 29500
+# curl 2x8xa100-80gb-0.svc-2x8xa100-80gb:29500
 ```
 
 
@@ -95,3 +97,11 @@ FSX can be viewed as local SSD internally.
 AWS Kubernetes use FSX.
 
 The other AWS nodes use EFS.
+
+
+## Single node
+
+```bash
+kubectl apply -f 1x8xa100-80gb.yaml
+kubectl delete pod 1x8xa100-80gb --grace-period=0 --force
+```

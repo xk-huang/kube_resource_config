@@ -4,7 +4,7 @@ kind: StatefulSet
 metadata:
   name: 2x8xa100-80gb
 spec:
-  serviceName: 2x8xa100-80gb
+  serviceName: svc-2x8xa100-80gb
   replicas: 2
   selector:
     matchLabels:
@@ -52,15 +52,6 @@ spec:
           ports:
             - containerPort: 29500
               name: dist
-          env:
-            - name: MASTER_ADDR
-              value: 2x8xa100-80gb-0.2x8xa100-80gb
-            - name: MASTER_PORT
-              value: "29500"
-            - name: NNODES
-              value: "2"
-            - name: NPROC_PER_NODE
-              value: "8"
           volumeMounts:
             - name: fsx-storage
               mountPath: /fsx
