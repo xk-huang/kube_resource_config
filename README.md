@@ -15,6 +15,16 @@ ip-172-31-150-203.us-west-2.compute.internal   Ready    <none>   15d    v1.32.7-
 (No GPU) ip-172-31-159-22.us-west-2.compute.internal    Ready    <none>   224d   v1.32.7-eks-3abbec1   172.31.159.22    <none>        Amazon Linux 2023.8.20250721   6.1.144-170.251.amzn2023.x86_64   containerd://1.7.27
 ```
 
+The node types
+- sys nodes: c5.24xlarge, no GPU
+- trainer nodes: p4de.24xlarge, nvidia.com/gpu.count=8, nvidia.com/gpu.product=NVIDIA-A100-SXM4-80GB, feature.node.kubernetes.io/rdma.available=true
+
+Check nodes resources
+
+```bash
+kubectl describe node ip-172-31-135-70.us-west-2.compute.internal
+```
+
 
 Show used pods
 
@@ -30,6 +40,8 @@ sod-worker        1/1     Running   0          2d17h   172.31.140.225   ip-172-3
 
 
 Start statefulset and service pods, check the status, and exec into the pods.
+
+Service is for torch distributed training, as it provides stable network identity and DNS for the pods in the statefulset. Each pod can be accessed via a predictable hostname, which is crucial for distributed training where each worker needs to communicate with others.
 
 ```bash
 # Start the statefulset and service
@@ -52,6 +64,12 @@ POD_ORDINAL=1 ./exec_pod_as_host_user.sh 2x8xa100-80gb
 # To delete the statefulset and service
 kubectl delete statefulset 2x8xa100-80gb
 kubectl delete service 2x8xa100-80gb
+
+
+# Check pod status
+kubectl describe pod <pod-name>
+#  If running but app seems bad, use 
+kubectl logs -f <pod-name>
 ```
 
 

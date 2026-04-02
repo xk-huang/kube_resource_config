@@ -18,6 +18,9 @@ spec:
         num_gpus: "8"
     spec:
       terminationGracePeriodSeconds: 10
+      nodeSelector:
+        eks.amazonaws.com/nodegroup: trainer
+        node.kubernetes.io/instance-type: p4de.24xlarge
 
       affinity:
         podAntiAffinity:
