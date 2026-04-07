@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+kubectl_bin="${KUBECTL_BIN:-kubectl}"
+kubectl_cmd=("$kubectl_bin")
+
+
+# Show basic usage and current pod choices.
+if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ "$#" -eq 0 ]; then
   echo "Usage: $0 [pod_name] [container_name]"
   echo "Environment: KUBECTL_BIN=kubectl KUBECTL_NAMESPACE=<namespace>"
+  echo "See available pods:"
+  "${kubectl_cmd[@]}" get pods
   exit 0
 fi
 
-target_name="${1:-1x8xa100-80gb}"
-pod_name="$target_name"
+pod_name="${1:-}"
 container_name="${2:-}"
-user_name="$(id -un)"
-user_uid="$(id -u)"
-user_gid="$(id -g)"
-kubectl_bin="${KUBECTL_BIN:-kubectl}"
-kubectl_cmd=("$kubectl_bin")
 
 if [ -n "${KUBECTL_NAMESPACE:-}" ]; then
   kubectl_cmd+=(-n "$KUBECTL_NAMESPACE")
@@ -25,36 +26,71 @@ if ! command -v "$kubectl_bin" >/dev/null 2>&1; then
   exit 1
 fi
 
+
+# Resolve the target pod first; a StatefulSet name is not directly exec-able.
 if ! "${kubectl_cmd[@]}" get pod "$pod_name" >/dev/null 2>&1; then
-  if "${kubectl_cmd[@]}" get statefulset "$target_name" >/dev/null 2>&1; then
-    echo "statefulset found: $target_name, use a pod name by appending \"-<ordinal>\" (for example, \"${target_name}-0\")" >&2
-    exit 1
-  else
-    echo "pod or statefulset not found: $target_name" >&2
-    "${kubectl_cmd[@]}" get pods
+
+  if "${kubectl_cmd[@]}" get statefulset "$pod_name" >/dev/null 2>&1; then
+    echo "statefulset found: $pod_name, use a pod name by appending \"-<ordinal>\" (for example, \"${pod_name}-0\")" >&2
     exit 1
   fi
+
+  echo "pod or statefulset not found: $pod_name, see available pods:" >&2
+  "${kubectl_cmd[@]}" get pods
+	exit 1
 fi
 
-if [ -z "$container_name" ]; then
-  read -r -a containers <<< "$("${kubectl_cmd[@]}" get pod "$pod_name" -o jsonpath="{range .spec.containers[*]}{.name}{' '}{end}")"
-  if [ "${#containers[@]}" -ne 1 ]; then
-    echo "pod $pod_name has multiple containers, set CONTAINER_NAME" >&2
-    exit 1
-  fi
-  container_name="${containers[0]}"
-fi
 
-if [ "$("${kubectl_cmd[@]}" get pod "$pod_name" -o jsonpath="{.spec.containers[?(@.name==\"$container_name\")].name}")" != "$container_name" ]; then
-  echo "container not found: $container_name in pod $pod_name" >&2
+# Read container names once so selection and validation stay consistent.
+read -r -a containers <<< "$("${kubectl_cmd[@]}" get pod "$pod_name" -o jsonpath="{range .spec.containers[*]}{.name}{' '}{end}")"
+
+
+# Caveat: this should not happen for a normal running pod, but fail clearly if it does.
+if [ "${#containers[@]}" -eq 0 ]; then
+  echo "pod $pod_name has no containers" >&2
   exit 1
 fi
 
+
+# Auto-pick the only container, otherwise require an explicit match.
+if [ -z "$container_name" ]; then
+  if [ "${#containers[@]}" -gt 1 ]; then
+    echo "pod $pod_name has multiple containers, set [container_name]" >&2
+    echo "available containers: ${containers[*]}" >&2
+    exit 1
+  fi
+  container_name="${containers[0]}"
+else
+  container_found=0
+  for candidate in "${containers[@]}"; do
+    if [ "$candidate" = "$container_name" ]; then
+      container_found=1
+      break
+    fi
+  done
+
+  if [ "$container_found" -ne 1 ]; then
+    echo "container not found: $container_name in pod $pod_name" >&2
+    echo "available containers: ${containers[*]}" >&2
+    exit 1
+  fi
+fi
+
+
+# Caveat: readiness is checked from containerStatuses, which may lag right after pod updates.
 if [ "$("${kubectl_cmd[@]}" get pod "$pod_name" -o jsonpath="{.status.containerStatuses[?(@.name==\"$container_name\")].ready}")" != "true" ]; then
   echo "container not ready: $container_name in pod $pod_name" >&2
   exit 1
 fi
 
+
+# Mirror the local host identity inside the container session.
+user_name="$(id -un)"
+user_uid="$(id -u)"
+user_gid="$(id -g)"
+
+
+# Bootstrap a matching user inside the container, then switch into that login shell.
 "${kubectl_cmd[@]}" exec -it "$pod_name" -c "$container_name" -- bash -lc '
 set -euo pipefail
 
@@ -62,11 +98,15 @@ user_name="$1"
 user_uid="$2"
 user_gid="$3"
 
+
+# Caveat: package install and user management require the exec session to start as root.
 if [ "$(id -u)" -ne 0 ]; then
   echo "container session must start as root" >&2
   exit 1
 fi
 
+
+# Install sudo only when missing; package-manager support is intentionally narrow.
 if ! command -v sudo >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
@@ -82,11 +122,15 @@ if ! command -v sudo >/dev/null 2>&1; then
   fi
 fi
 
+
+# Fail fast if the base image lacks standard Linux account-management tools.
 if ! command -v groupadd >/dev/null 2>&1 || ! command -v useradd >/dev/null 2>&1; then
   echo "groupadd and useradd are required in the container" >&2
   exit 1
 fi
 
+
+# Reuse an existing group for the gid when possible, otherwise create one.
 group_name="$(getent group "$user_gid" | cut -d: -f1 || true)"
 if [ -z "$group_name" ]; then
   if getent group "$user_name" >/dev/null 2>&1; then
@@ -97,6 +141,8 @@ if [ -z "$group_name" ]; then
   group_name="$user_name"
 fi
 
+
+# Reuse the username only if its uid/gid already matches the host identity.
 if getent passwd "$user_name" >/dev/null 2>&1; then
   if [ "$(id -u "$user_name")" != "$user_uid" ]; then
     echo "user $user_name already exists with uid $(id -u "$user_name"), expected $user_uid" >&2
@@ -115,6 +161,8 @@ else
   useradd -m -u "$user_uid" -g "$group_name" -s /bin/bash "$user_name"
 fi
 
+
+# Ensure the login home exists and is owned by the mapped user.
 home_dir="$(getent passwd "$user_name" | cut -d: -f6)"
 if [ -z "$home_dir" ]; then
   home_dir="/home/$user_name"
@@ -122,9 +170,13 @@ fi
 mkdir -p "$home_dir"
 chown "$user_uid:$user_gid" "$home_dir"
 
+
+# Grant passwordless sudo for the interactive session.
 install -d -m 0755 /etc/sudoers.d
 printf "%s ALL=(ALL) NOPASSWD:ALL\n" "$user_name" > "/etc/sudoers.d/90-$user_name"
 chmod 0440 "/etc/sudoers.d/90-$user_name"
 
+
+# Hand off to the mapped user as a login shell.
 exec sudo -u "$user_name" -i
 ' bash "$user_name" "$user_uid" "$user_gid"
