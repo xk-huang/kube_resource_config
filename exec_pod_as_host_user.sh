@@ -2,21 +2,20 @@
 set -euo pipefail
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-  echo "Usage: $0 [pod_name|statefulset_name]"
-  echo "Environment: CONTAINER_NAME=<name> POD_ORDINAL=0 KUBECTL_BIN=kubectl KUBECTL_NAMESPACE=<namespace>"
+  echo "Usage: $0 [pod_name] [container_name]"
+  echo "Environment: KUBECTL_BIN=kubectl KUBECTL_NAMESPACE=<namespace>"
   exit 0
 fi
 
 target_name="${1:-1x8xa100-80gb}"
 pod_name="$target_name"
-container_name="${CONTAINER_NAME:-}"
-pod_ordinal="${POD_ORDINAL:-0}"
+container_name="${2:-}"
 user_name="$(id -un)"
 user_uid="$(id -u)"
 user_gid="$(id -g)"
 kubectl_bin="${KUBECTL_BIN:-kubectl}"
-
 kubectl_cmd=("$kubectl_bin")
+
 if [ -n "${KUBECTL_NAMESPACE:-}" ]; then
   kubectl_cmd+=(-n "$KUBECTL_NAMESPACE")
 fi
@@ -28,16 +27,13 @@ fi
 
 if ! "${kubectl_cmd[@]}" get pod "$pod_name" >/dev/null 2>&1; then
   if "${kubectl_cmd[@]}" get statefulset "$target_name" >/dev/null 2>&1; then
-    pod_name="$target_name-$pod_ordinal"
+    echo "statefulset found: $target_name, use a pod name by appending \"-<ordinal>\" (for example, \"${target_name}-0\")" >&2
+    exit 1
   else
     echo "pod or statefulset not found: $target_name" >&2
+    "${kubectl_cmd[@]}" get pods
     exit 1
   fi
-fi
-
-if ! "${kubectl_cmd[@]}" get pod "$pod_name" >/dev/null 2>&1; then
-  echo "pod not found: $pod_name" >&2
-  exit 1
 fi
 
 if [ -z "$container_name" ]; then
