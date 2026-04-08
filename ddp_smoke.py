@@ -7,22 +7,26 @@ for the world size.
 
 Example:
     Node 0:
+        NCCL_DEBUG=INFO \
         torchrun \
         --nnodes=2 \
         --nproc-per-node=8 \
         --node-rank=0 \
         --master-addr=2x8xa100-80gb-0.svc-2x8xa100-80gb \
         --master-port=29500 \
-        ddp_smoke.py --device cpu
+        ddp_smoke.py \
+        --device cpu
 
     Node 1:
+        NCCL_DEBUG=INFO \
         torchrun \
         --nnodes=2 \
         --nproc-per-node=8 \
         --node-rank=1 \
         --master-addr=2x8xa100-80gb-0.svc-2x8xa100-80gb \
         --master-port=29500 \
-        ddp_smoke.py --device cpu
+        ddp_smoke.py \
+        --device cpu
 """
 import argparse
 import os
