@@ -6,6 +6,35 @@ the per-rank values, and checks that the reduced sum matches the expected value
 for the world size.
 
 Example:
+
+    Node 0:
+        NCCL_DEBUG=INFO \
+        torchrun \
+        --nnodes=2 \
+        --nproc-per-node=8 \
+        --node-rank=0 \
+        --rdzv-backend=c10d \
+        --rdzv-endpoint=2x8xa100-80gb-0.svc-2x8xa100-80gb:29500 \
+        ddp_smoke.py
+
+        # --device cpu \
+        # --rdzv-id=myjob-001 \
+
+    Node 1:
+        NCCL_DEBUG=INFO \
+        torchrun \
+        --nnodes=2 \
+        --nproc-per-node=8 \
+        --node-rank=1 \
+        --rdzv-backend=c10d \
+        --rdzv-endpoint=2x8xa100-80gb-0.svc-2x8xa100-80gb:29500 \
+        ddp_smoke.py
+
+        # --device cpu
+        # --rdzv-id=myjob-001 \
+
+
+    # Static hostname may mismatch and cause hang on AWS
     Node 0:
         NCCL_DEBUG=INFO \
         torchrun \
@@ -14,8 +43,9 @@ Example:
         --node-rank=0 \
         --master-addr=2x8xa100-80gb-0.svc-2x8xa100-80gb \
         --master-port=29500 \
-        ddp_smoke.py \
-        --device cpu
+        ddp_smoke.py 
+
+        # --device cpu
 
     Node 1:
         NCCL_DEBUG=INFO \
@@ -25,8 +55,11 @@ Example:
         --node-rank=1 \
         --master-addr=2x8xa100-80gb-0.svc-2x8xa100-80gb \
         --master-port=29500 \
-        ddp_smoke.py \
-        --device cpu
+        ddp_smoke.py 
+
+        # --device cpu
+
+
 """
 import argparse
 import os
@@ -72,9 +105,13 @@ def main() -> None:
     dist.all_reduce(value, op=dist.ReduceOp.SUM)
     expected = world_size * (world_size - 1) / 2
 
+    master_addr = os.environ.get("MASTER_ADDR", "unknown")
+    master_port = os.environ.get("MASTER_PORT", "unknown")
+
     print(
         f"host={hostname} rank={rank}/{world_size} local_rank={local_rank} "
         f"device={device} reduced_sum={value.item()} expected={expected}",
+        f"master_addr={master_addr} master_port={master_port}",
         flush=True,
     )
 

@@ -11,12 +11,16 @@ spec:
     node.kubernetes.io/instance-type: p4de.24xlarge
   containers:
   - name: interactive
-    image: nvcr.io/nvidia/pytorch:25.06-py3
+    # image: nvcr.io/nvidia/pytorch:25.06-py3
+    image: public.ecr.aws/deep-learning-containers/pytorch-training:2.8.0-gpu-py312-cu129-ubuntu22.04-ec2-v1.33
     # https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch
     # https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/rel-25-06.html
     # https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html
     command: ["/bin/bash", "-lc"]
     args: ["sleep infinity"]
+    env:
+    - name: NCCL_NET_PLUGIN
+      value: ofi
     resources:
       requests:
         memory: "1Ti"
