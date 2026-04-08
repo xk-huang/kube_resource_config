@@ -111,11 +111,11 @@ if ! command -v sudo >/dev/null 2>&1; then
   if command -v apt-get >/dev/null 2>&1; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
-    apt-get install -y sudo
+    apt-get install -y sudo zsh tmux
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y sudo
+    dnf install -y sudo zsh tmux
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y sudo
+    yum install -y sudo zsh tmux
   else
     echo "sudo is missing and no supported package manager was found" >&2
     exit 1
