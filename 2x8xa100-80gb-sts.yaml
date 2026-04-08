@@ -45,10 +45,12 @@ spec:
               memory: "1Ti"
               cpu: "90"
               nvidia.com/gpu: "8"
+              vpc.amazonaws.com/efa: "4"
             limits:
               memory: "1Ti"
               cpu: "90"
               nvidia.com/gpu: "8"
+              vpc.amazonaws.com/efa: "4"
           ports:
             - containerPort: 29500
               name: dist

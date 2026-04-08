@@ -22,11 +22,12 @@ spec:
         memory: "1Ti"
         cpu: "90"
         nvidia.com/gpu: "8"
-        # vpc.amazonaws.com/efa: "4"
+        vpc.amazonaws.com/efa: "4"
       limits:
         memory: "1Ti"
         cpu: "90"
         nvidia.com/gpu: "8"
+        vpc.amazonaws.com/efa: "4"
     volumeMounts:
     - name: fsx-storage
       mountPath: /fsx
