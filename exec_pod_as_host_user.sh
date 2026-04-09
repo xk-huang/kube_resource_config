@@ -106,20 +106,52 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 
-# Install sudo only when missing; package-manager support is intentionally narrow.
-if ! command -v sudo >/dev/null 2>&1; then
-  if command -v apt-get >/dev/null 2>&1; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install -y sudo zsh tmux
-  elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y sudo zsh tmux
-  elif command -v yum >/dev/null 2>&1; then
-    yum install -y sudo zsh tmux
-  else
-    echo "sudo is missing and no supported package manager was found" >&2
+# Track the supported package manager once so required and optional installs stay separate.
+pkg_manager=""
+if command -v apt-get >/dev/null 2>&1; then
+  pkg_manager="apt-get"
+elif command -v dnf >/dev/null 2>&1; then
+  pkg_manager="dnf"
+elif command -v yum >/dev/null 2>&1; then
+  pkg_manager="yum"
+fi
+
+
+install_packages() {
+  if [ "$#" -eq 0 ]; then
+    return 0
+  fi
+
+  if [ -z "$pkg_manager" ]; then
+    echo "missing packages: $*; no supported package manager was found" >&2
     exit 1
   fi
+
+  if [ "$pkg_manager" = "apt-get" ]; then
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y "$@"
+  else
+    "$pkg_manager" install -y "$@"
+  fi
+}
+
+
+# Install sudo only when missing; package-manager support is intentionally narrow.
+if ! command -v sudo >/dev/null 2>&1; then
+  install_packages sudo
+fi
+
+
+# Install interactive tools independently so they do not depend on sudo being absent.
+missing_tools=()
+for tool in zsh tmux ffmpeg; do
+  if ! command -v "$tool" >/dev/null 2>&1; then
+    missing_tools+=("$tool")
+  fi
+done
+if [ "${#missing_tools[@]}" -gt 0 ]; then
+  install_packages "${missing_tools[@]}"
 fi
 
 
