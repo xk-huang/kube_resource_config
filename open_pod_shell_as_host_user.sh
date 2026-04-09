@@ -9,6 +9,7 @@ kubectl_cmd=("$kubectl_bin")
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ "$#" -eq 0 ]; then
   echo "Usage: $0 [pod_name] [container_name]"
   echo "Environment: KUBECTL_BIN=kubectl KUBECTL_NAMESPACE=<namespace>"
+  echo "Interactive login shell only. For non-interactive automation, use ./run_pod_command_as_host_user.sh"
   echo "See available pods:"
   "${kubectl_cmd[@]}" get pods
   exit 0

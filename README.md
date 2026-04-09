@@ -53,9 +53,12 @@ kubectl get statefulsets
 kubectl describe sts 2x8xa100-80gb
 kubectl get svc svc-2x8xa100-80gb
 
-# Exec into the pods as your current host user
-bash ./exec_pod_as_host_user.sh 2x8xa100-80gb-0
-bash ./exec_pod_as_host_user.sh 2x8xa100-80gb-1
+# Open an interactive shell in the pods as your current host user
+bash ./open_pod_shell_as_host_user.sh 2x8xa100-80gb-0
+bash ./open_pod_shell_as_host_user.sh 2x8xa100-80gb-1
+
+# Run a non-interactive command in the pod as your current host user
+bash ./run_pod_command_as_host_user.sh 2x8xa100-80gb-0 -- python -c "import os; print(os.getcwd())"
 
 # To delete the statefulset and service
 kubectl delete statefulset 2x8xa100-80gb
@@ -92,6 +95,37 @@ kubectl exec -it 1x8xa100-80gb -- bash
 
 kubectl delete pod 1x8xa100-80gb --grace-period=0 --force
 ```
+
+## Codex And Pod Execution
+
+Best practice is to keep Codex on the host for editing, search, git, and any internet-requiring tooling, and use a separate non-interactive pod runner for training or runtime commands.
+
+Use the split like this:
+
+- `open_pod_shell_as_host_user.sh`: human interactive shell, optional tool bootstrap.
+- `run_pod_command_as_host_user.sh`: automation path for Codex and scripts.
+
+The command runner defaults the pod working directory to the current host directory via `POD_WORKDIR=$PWD`, so it works well when the repo is mounted at the same path inside the pod.
+
+Examples:
+
+```bash
+# Smoke test
+bash ./run_pod_command_as_host_user.sh 2x8xa100-80gb-0 -- bash -lc 'pwd && id && python -V'
+
+# Explicit pod working directory if the mount path differs
+POD_WORKDIR=/workspace/kube_resource_config \
+  bash ./run_pod_command_as_host_user.sh 2x8xa100-80gb-0 -- python train.py
+```
+
+When prompting Codex, be explicit that host-side work stays local and pod-side execution must go through the wrapper. For example:
+
+```text
+Edit files locally, but run training and runtime validation via:
+bash ./run_pod_command_as_host_user.sh 2x8xa100-80gb-0 -- <command>
+```
+
+Do not rely on package installs during automated pod exec. For repeatable agent usage, bake runtime dependencies into the image or prepare the pod once up front.
 
 
 

@@ -53,8 +53,8 @@ spec:
       sizeLimit: 256Gi
 
 # k apply -f dev/scripts/infer_kimi_k2p5/kube_resource_config/1x8xa100_80gb.yaml
-# ./dev/scripts/infer_kimi_k2p5/kube_resource_config/exec_pod_as_host_user.sh
-# ./dev/scripts/infer_kimi_k2p5/kube_resource_config/exec_pod_as_host_user.sh 1x8xa100-80gb
+# ./dev/scripts/infer_kimi_k2p5/kube_resource_config/open_pod_shell_as_host_user.sh
+# ./dev/scripts/infer_kimi_k2p5/kube_resource_config/open_pod_shell_as_host_user.sh 1x8xa100-80gb
 # k delete pod 1x8xa100-80gb --grace-period=0 --force
 # k describe pod 1x8xa100-80gb
 
