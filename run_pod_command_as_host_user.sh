@@ -11,9 +11,11 @@ usage() {
   echo "Notes:"
   echo "  - Non-interactive command runner for automation and agents."
   echo "  - Defaults POD_WORKDIR to the current host directory: $PWD"
+  echo "  - For per-command temporary env vars , use: env KEY=value <command> [args...]"
   echo "Examples:"
   echo "  $0 2x8xa100-80gb-0 -- python -m torch.distributed.run --nproc_per_node=8 train.py"
   echo "  $0 --cwd /fsx/xhuan192/code/kube_resource_config 2x8xa100-80gb-0 trainer -- bash -lc 'pwd && id'"
+  echo "  $0 2x8xa100-80gb-0 -- env MASTER_ADDR=127.0.0.1 python -m torch.distributed.run --nproc_per_node=8 train.py"
 }
 
 if ! command -v "$kubectl_bin" >/dev/null 2>&1; then
